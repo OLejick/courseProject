@@ -1,32 +1,34 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using TMPro;
-using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-
-public enum UserRole
-{
-    Common,
-    Organization,
-    Admin
-}
 
 public class Authorization : MonoBehaviour
 {
     [Header("InputFields")]
-    [SerializeField] private TMP_InputField _usernameInputField;
-    [SerializeField] private TMP_InputField _passwordInputField;
+    [SerializeField] private TMP_InputField _phoneInputField = null!;
+    [SerializeField] private TMP_InputField _passwordInputField = null!;
 
-    [SerializeField] private TextMeshProUGUI _requestText;
+    [SerializeField] private TextMeshProUGUI _requestText = null!;
+    public static HttpClient? HttpClient { get; set; }
+
+    private void Start()
+    {
+        if (HttpClient == null)
+        {
+            HttpClient = new HttpClient()
+            {
+                BaseAddress = new Uri("https://api.prof-testium.ru/"),
+            };
+            Debug.Log("Global HttpClient created for cookie-based auth");
+
+        }
+    }
 
     public async void Auth()
     {
@@ -35,45 +37,55 @@ public class Authorization : MonoBehaviour
 
     public async Task AuthAsync()
     {
-        Student student = new Student(_usernameInputField.text, _passwordInputField.text);
-
-        _requestText.text = "";
-
-        using var client = new HttpClient()
+        var loginData = new LoginByPhoneDto
         {
-            BaseAddress = new Uri("https://0435-176-28-64-201.ngrok-free.app/api/"),
+            phone = _phoneInputField.text,
+            password = _passwordInputField.text
         };
-        client.DefaultRequestHeaders.Add("ngrok-skip-browser-warning", "69420");
-
-        var s = JsonUtility.ToJson(student);
-        var content = new StringContent(s, Encoding.UTF8, MediaTypeNames.Application.Json);
-        var response = await client.PostAsync("signin", content);
-        TokenBody? tokenBody = null;
-        if (response.StatusCode == HttpStatusCode.OK)
+        _requestText.text = "Вход...";
+        try
         {
-            var tokenBodyString = await response.Content.ReadAsStringAsync();
-            tokenBody = JsonUtility.FromJson<TokenBody>(tokenBodyString);
+            var json = JsonUtility.ToJson(loginData);
+            var content = new StringContent(json, Encoding.UTF8, MediaTypeNames.Application.Json);
 
-            AccountManager.Instance.SetToken(tokenBody);
+            var response = await HttpClient!.PutAsync("client/auth/login", content);
 
-            SceneManager.LoadScene(1);
+            if (response.StatusCode == HttpStatusCode.Created)
+            {
+                var reponseString = await response.Content.ReadAsStringAsync();
+                Debug.Log($"Успешный вход: {reponseString}");
+                var userReponse = JsonUtility.FromJson<UserLoginResponse>(reponseString);
+
+                if (userReponse != null)
+                {
+                    AccountManager.Instance.SetUserData(userReponse);
+                    _requestText.text = "Успешный вход!";
+                    SceneManager.LoadScene(1);
+                }
+                else
+                {
+                    _requestText.text = "Вход выполнен!";
+                    SceneManager.LoadScene(1);
+                }
+            }else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                _requestText.text = "Неверный телефон или пароль";
+            }
+            else
+            {
+                _requestText.text = $"Ошибка: {response.StatusCode}";
+                Debug.LogError($"Ошибка входа: {response.StatusCode}");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _requestText.text = "Неверные данные";
+            _requestText.text = "Ошибка соединения";
+            Debug.LogError($"Auth error: {ex.Message}");
         }
     }
-}
-
-public class Student
-{
-    public string email;
-    public string password;
-
-    public Student(string name, string pass)
+    private void OnDestroy()
     {
-        email = name;
-        password = pass;
+        // не уничтожаем
     }
 }
 
