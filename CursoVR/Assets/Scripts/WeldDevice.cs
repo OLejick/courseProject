@@ -6,6 +6,7 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 public class WeldDevice : MonoBehaviour
 {
+    [SerializeField] private GameObject point;
     [SerializeField] private Transform _switch;
     [SerializeField] private Material _enabledSwitch;
     [SerializeField] private Material _disabledSwitch;
@@ -22,6 +23,7 @@ public class WeldDevice : MonoBehaviour
 
         if (_isOn)
         {
+            point.SetActive(true);
             _switch.transform.rotation = Quaternion.Euler(_switch.transform.rotation.x, _switch.transform.rotation.y, 80);
             _switch.GetComponent<MeshRenderer>().material = _enabledSwitch;
 
@@ -31,6 +33,7 @@ public class WeldDevice : MonoBehaviour
         }
         else
         {
+            point.SetActive(false);
             _switch.transform.rotation = Quaternion.Euler(_switch.transform.rotation.x, _switch.transform.rotation.y, 100);
             _switch.GetComponent<MeshRenderer>().material = _disabledSwitch;
 

@@ -23,7 +23,7 @@ public class Electrode : MonoBehaviour
         if (_inHolder)
         {
             if (welding)
-            {          
+            {
                 seam.enabled = true;
                 OnWeld?.Invoke();
             }

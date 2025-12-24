@@ -8,6 +8,8 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.SceneManagement;
 
+#nullable enable
+
 public class Authorization : MonoBehaviour
 {
     [Header("InputFields")]
@@ -15,10 +17,13 @@ public class Authorization : MonoBehaviour
     [SerializeField] private TMP_InputField _passwordInputField = null!;
 
     [SerializeField] private TextMeshProUGUI _requestText = null!;
+
+    // ÈÑÏĞÀÂËÅÍÎ: Äîáàâëåí setter äëÿ HttpClient
     public static HttpClient? HttpClient { get; set; }
 
     private void Start()
     {
+        // ÑÎÇÄÀÅÌ ÅÄÈÍÛÉ HTTP CLIENT ÅÑËÈ ÅÃÎ ÍÅÒ
         if (HttpClient == null)
         {
             HttpClient = new HttpClient()
@@ -26,7 +31,6 @@ public class Authorization : MonoBehaviour
                 BaseAddress = new Uri("https://api.prof-testium.ru/"),
             };
             Debug.Log("Global HttpClient created for cookie-based auth");
-
         }
     }
 
@@ -42,23 +46,29 @@ public class Authorization : MonoBehaviour
             phone = _phoneInputField.text,
             password = _passwordInputField.text
         };
+
         _requestText.text = "Âõîä...";
+
         try
         {
             var json = JsonUtility.ToJson(loginData);
             var content = new StringContent(json, Encoding.UTF8, MediaTypeNames.Application.Json);
 
-            var response = await HttpClient!.PutAsync("client/auth/login", content);
+            // ÈÑÏÎËÜÇÓÅÌ ÎÁÙÈÉ HTTP CLIENT (COOKIES ÑÎÕĞÀÍßŞÒÑß ÀÂÒÎÌÀÒÈ×ÅÑÊÈ)
+            var response = await HttpClient!.PostAsync("client/auth/login", content);
 
             if (response.StatusCode == HttpStatusCode.Created)
             {
-                var reponseString = await response.Content.ReadAsStringAsync();
-                Debug.Log($"Óñïåøíûé âõîä: {reponseString}");
-                var userReponse = JsonUtility.FromJson<UserLoginResponse>(reponseString);
+                var responseString = await response.Content.ReadAsStringAsync();
+                Debug.Log($"Óñïåøíûé âõîä: {responseString}");
 
-                if (userReponse != null)
+                // ÏÀĞÑÈÌ ÄÀÍÍÛÅ ÏÎËÜÇÎÂÀÒÅËß ÄËß AccountManager
+                var userResponse = JsonUtility.FromJson<UserLoginResponse>(responseString);
+
+                if (userResponse != null)
                 {
-                    AccountManager.Instance.SetUserData(userReponse);
+                    // ÑÎÕĞÀÍßÅÌ ÄÀÍÍÛÅ ÏÎËÜÇÎÂÀÒÅËß Â AccountManager
+                    AccountManager.Instance.SetUserData(userResponse);
                     _requestText.text = "Óñïåøíûé âõîä!";
                     SceneManager.LoadScene(1);
                 }
@@ -67,7 +77,8 @@ public class Authorization : MonoBehaviour
                     _requestText.text = "Âõîä âûïîëíåí!";
                     SceneManager.LoadScene(1);
                 }
-            }else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            }
+            else if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 _requestText.text = "Íåâåğíûé òåëåôîí èëè ïàğîëü";
             }
@@ -83,9 +94,17 @@ public class Authorization : MonoBehaviour
             Debug.LogError($"Auth error: {ex.Message}");
         }
     }
+
     private void OnDestroy()
     {
-        // íå óíè÷òîæàåì
+        // ÍÅ ÓÍÈ×ÒÎÆÀÅÌ HttpClient, ÎÍ ÍÓÆÅÍ ÄËß ÄĞÓÃÈÕ ÑÖÅÍ
     }
 }
 
+// Êëàññ äëÿ äàííûõ âõîäà
+[System.Serializable]
+public class LoginByPhoneDto
+{
+    public string phone = string.Empty;
+    public string password = string.Empty;
+}

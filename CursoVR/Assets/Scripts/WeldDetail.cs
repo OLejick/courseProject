@@ -16,8 +16,8 @@ public class WeldDetail : MonoBehaviour
 
     [SerializeField] private XRSocketInteractor _plugSocket;
 
-    [SerializeField] private GameObject _cindersPrefab; 
-    [SerializeField] private Transform _cindersSpawnPoint; 
+    [SerializeField] private GameObject _cindersPrefab;
+    [SerializeField] private Transform _cindersSpawnPoint;
 
     public void ConnectMass(bool mass)
     {
@@ -43,7 +43,7 @@ public class WeldDetail : MonoBehaviour
             _mass = true;
             SetCanWeld();
         }
-            
+
     }
 
     public void DisableMass()
@@ -64,14 +64,14 @@ public class WeldDetail : MonoBehaviour
 
     public void SetCanWeld()
     {
-        if(_mass && _detailConstructed)
+        if (_mass && _detailConstructed)
         {
             foreach (GameObject seam in seams)
             {
                 seam.SetActive(true);
                 seam.GetComponent<Collider>().enabled = true;
             }
-        }       
+        }
     }
 
     public void CheckSeam()
@@ -80,12 +80,12 @@ public class WeldDetail : MonoBehaviour
 
         foreach (var seam in seams)
         {
-            if(seam.GetComponent<MeshRenderer>().enabled)
+            if (seam.GetComponent<MeshRenderer>().enabled)
                 countOfSeam++;
             print(countOfSeam);
         }
 
-        if(countOfSeam == seams.Count)
+        if (countOfSeam == seams.Count)
         {
             if (!_detailIsComplete)
             {
@@ -94,7 +94,7 @@ public class WeldDetail : MonoBehaviour
 
             _detailIsComplete = true;
             WeldProcess.Instance.DetailIsComplete = true;
-            
+
         }
     }
 

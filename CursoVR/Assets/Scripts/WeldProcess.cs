@@ -1,16 +1,8 @@
+#nullable enable
+
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Net.Mime;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Networking;
-using UnityEngine.SocialPlatforms.Impl;
 
 public enum CriterionName
 {
@@ -20,7 +12,7 @@ public enum CriterionName
     Mask,
     Rug,
     WireChecked,
-    Grounding, 
+    Grounding,
     WireLengthSetted,
     SwitchOn,
     ElectrodeInHolder,
@@ -29,10 +21,10 @@ public enum CriterionName
     DetailOnTable,
     TableIsClear
 }
-
 public class WeldProcess : MonoBehaviour
 {
-    [SerializeField] private List<Criterion> _criteria = new List<Criterion> { 
+    [SerializeField]
+    private List<Criterion> _criteria = new List<Criterion> {
         new Criterion(CriterionName.WeldDress, "Сварочный костюм"),
         new Criterion(CriterionName.LegDress, "Спец. обувь"),
         new Criterion(CriterionName.Gloves, "Перчатки"),
@@ -50,13 +42,9 @@ public class WeldProcess : MonoBehaviour
     };
 
     public List<Criterion> Criteria => _criteria;
-
     public bool DetailIsComplete;
-
-    public static WeldProcess Instance;
-
-    public string DropReason;
-
+    public static WeldProcess? Instance;
+    public string? DropReason;
     public bool Running;
     public float TimeProcess;
 
@@ -65,6 +53,18 @@ public class WeldProcess : MonoBehaviour
         Instance = this;
         Running = true;
     }
+    public void SendResult()
+    {
+        // Просто запускаем отправку результатов через CompleteTable
+        // или вызываем событие для других скриптов
+        Debug.Log("SendResult called - расчет баллов завершен");
+
+        // Можно вызвать событие, если нужно уведомить другие скрипты
+        OnResultsSent?.Invoke(CalculateScore(), GetCompletedCriteriaCount(), Criteria.Count);
+    }
+
+    // Событие для уведомления о завершении (если нужно)
+    public event Action<int, int, int>? OnResultsSent;
 
     private void FixedUpdate()
     {
@@ -74,7 +74,15 @@ public class WeldProcess : MonoBehaviour
         }
     }
 
-    public Criterion GetCriterion(CriterionName name)
+    // ТОЛЬКО РАСЧЕТ БАЛЛОВ И ЛОГИКА КРИТЕРИЕВ
+    public int CalculateScore()
+    {
+        if (_criteria.Count == 0) return 0;
+        int completedCount = GetCompletedCriteriaCount();
+        return (int)((completedCount / (float)_criteria.Count) * 100);
+    }
+
+    public Criterion? GetCriterion(CriterionName name)
     {
         foreach (var criterion in _criteria)
         {
@@ -83,7 +91,6 @@ public class WeldProcess : MonoBehaviour
                 return criterion;
             }
         }
-
         return null;
     }
 
@@ -91,7 +98,7 @@ public class WeldProcess : MonoBehaviour
     {
         foreach (var criterion in _criteria)
         {
-            if(criterion.Name == criterionName)
+            if (criterion.Name == criterionName)
             {
                 criterion.Complete = complete;
                 break;
@@ -102,7 +109,6 @@ public class WeldProcess : MonoBehaviour
     public int GetCompletedCriteriaCount()
     {
         int count = 0;
-
         foreach (var criterion in _criteria)
         {
             if (criterion.Complete)
@@ -110,7 +116,6 @@ public class WeldProcess : MonoBehaviour
                 count++;
             }
         }
-
         return count;
     }
 
@@ -120,86 +125,23 @@ public class WeldProcess : MonoBehaviour
         {
             criterion.Complete = false;
         }
+        DropReason = null;
     }
 
-    public async void SendResult()
+    [Serializable]
+    public class Criterion
     {
-        Running = false;
-        await SendResultsAsync();
-    }
+        public CriterionName Name;
+        public string Description;
+        public bool Complete;
 
-    async Task SendResultsAsync() // отправка результатов на сервер с использованием токена
-    {
-        using var client = new HttpClient()
+        public Criterion(CriterionName name, string description)
         {
-            BaseAddress = new Uri("https://0435-176-28-64-201.ngrok-free.app/api/"), // адрес сервера
-        };
-        client.DefaultRequestHeaders.Add("ngrok-skip-browser-warning", "69420");
-
-        client.DefaultRequestHeaders.Add("Authorization", AccountManager.Instance.Token.tokenPair.accessToken);//установка токена в header
-
-        var sessonResult = new SessionResult
-        {
-            score = GetCompletedCriteriaCount(),
-            maxScore = _criteria.Count,
-            duration = new TimeSpan(0, (int)TimeProcess / 60, (int)TimeProcess % 60),
-            mark = GetCompletedCriteriaCount() / _criteria.Count * 10,
-            descriptionEvaluationReason = DropReason,
-            isSuccessful = false
-        };
-
-        var sessionResultString = JsonUtility.ToJson(sessonResult);
-        var sessionResultContent = new StringContent(sessionResultString, Encoding.UTF8, MediaTypeNames.Application.Json);
-
-        var responseCreatesession = await client.PostAsync("session/Сварщики", sessionResultContent);
-        string? sessionId = null;
-        if(responseCreatesession.StatusCode == HttpStatusCode.OK)
-        {
-            var sessionResultBodyString = await responseCreatesession.Content.ReadAsStringAsync();
-            var sessionResultBody = JsonUtility.FromJson<SessionResultBody>(sessionResultBodyString);
-            print(sessionResultBody.score);
-            print(sessionResultBody.maxScore);
+            Name = name;
+            Description = description;
+            Complete = false;
         }
     }
 }
 
-[Serializable]
-public class SessionResult
-{
-    public TimeSpan duration;
-    public float score;
-    public float maxScore;
-    public bool isSuccessful;
-    public float mark;
-    public string descriptionEvaluationReason;
-}
-
-[Serializable]
-public class SessionResultBody
-{
-    public string id;
-    public string date;
-    public string duration;
-    public float score;
-    public float maxScore;
-    public bool isSuccessful;
-    public float mark;
-    public string descriptionEvaluationReason;
-    public string? urlRecordingFile;
-}
-
-
-[Serializable]
-public class Criterion
-{
-    public CriterionName Name;
-    public string Description;
-    public bool Complete;
-
-    public Criterion(CriterionName name, string description)
-    {
-        Name = name;
-        Complete = false;
-        Description = description;
-    }
-}
+#nullable restore
